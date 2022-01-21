@@ -54,7 +54,7 @@ def deploy_reward_program(client):
     client.wait(opg)
 
     # Searching for Reward Program contract address:
-    opg = client.shell.blocks['head':].find_operation(opg.hash())
+    opg = client.shell.blocks[-10:].find_operation(opg.hash())
     op_result = opg['contents'][0]['metadata']['operation_result']
     address = op_result['originated_contracts'][0]
     print(f'token address: {address}')
