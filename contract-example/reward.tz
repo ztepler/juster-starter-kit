@@ -1,0 +1,414 @@
+{ parameter
+    (or (or (or (contract %acceptAdmin unit)
+                (pair %claimReward (nat %eventId) (address %participant)))
+            (or (contract %releaseAdmin address) (unit %triggerPause)))
+        (pair %update
+           (pair (pair (pair %allowedPeriod (timestamp %endTime) (timestamp %startTime))
+                       (address %juster))
+                 (pair (address %manager) (address %tokenAddress)))
+           (pair (nat %tokenId) (set %trustedCreators address)))) ;
+  storage
+    (pair (pair (pair (pair (pair %allowedPeriod (timestamp %endTime) (timestamp %startTime))
+                            (big_map %claimedRewards (pair address nat) unit))
+                      (pair (bool %isPaused) (address %juster)))
+                (pair (pair (address %manager) (big_map %metadata string bytes))
+                      (pair (address %tokenAddress) (nat %tokenId))))
+          (set %trustedCreators address)) ;
+  code { UNPAIR ;
+         IF_LEFT
+           { IF_LEFT
+               { IF_LEFT
+                   { SWAP ;
+                     DUP ;
+                     DUG 2 ;
+                     CAR ;
+                     CDR ;
+                     CAR ;
+                     CAR ;
+                     SENDER ;
+                     COMPARE ;
+                     EQ ;
+                     IF { SWAP ;
+                          NIL operation ;
+                          DIG 2 ;
+                          PUSH mutez 0 ;
+                          UNIT ;
+                          TRANSFER_TOKENS ;
+                          CONS ;
+                          PAIR }
+                        { DROP 2 ; PUSH string "Only admin can call accept admin" ; FAILWITH } }
+                   { UNPAIR ;
+                     DUP 3 ;
+                     CAR ;
+                     CAR ;
+                     CDR ;
+                     CAR ;
+                     IF { PUSH string "Contract is paused" ; FAILWITH } {} ;
+                     DUP ;
+                     DUP 3 ;
+                     PAIR ;
+                     DUP 4 ;
+                     CAR ;
+                     CAR ;
+                     CDR ;
+                     CDR ;
+                     SWAP ;
+                     DUP ;
+                     DUG 2 ;
+                     VIEW "getPosition"
+                          (pair (pair (pair (mutez %betsAboveEq) (mutez %betsBelow))
+                                      (pair (mutez %depositedBets) (mutez %depositedLiquidity)))
+                                (pair (pair (bool %isWithdrawn) (nat %liquidityShares))
+                                      (pair (mutez %providedLiquidityAboveEq) (mutez %providedLiquidityBelow)))) ;
+                     IF_NONE { PUSH string "Juster.getPosition view is not found" ; FAILWITH } {} ;
+                     DUP 5 ;
+                     CAR ;
+                     CAR ;
+                     CDR ;
+                     CDR ;
+                     DIG 3 ;
+                     VIEW "getEvent"
+                          (pair (pair (pair (pair (pair (timestamp %betsCloseTime) (option %closedDynamics nat))
+                                                  (pair (option %closedOracleTime timestamp) (option %closedRate nat)))
+                                            (pair (pair (timestamp %createdTime) (address %creator))
+                                                  (pair (string %currencyPair) (mutez %expirationFee))))
+                                      (pair (pair (pair (option %isBetsAboveEqWin bool) (bool %isClosed))
+                                                  (pair (bool %isForceMajeure) (nat %liquidityPercent)))
+                                            (pair (pair (nat %maxAllowedMeasureLag) (option %measureOracleStartTime timestamp))
+                                                  (pair (nat %measurePeriod) (mutez %measureStartFee)))))
+                                (pair (pair (pair (address %oracleAddress) (mutez %poolAboveEq))
+                                            (pair (mutez %poolBelow) (mutez %rewardCallFee)))
+                                      (pair (pair (option %startRate nat) (nat %targetDynamics))
+                                            (nat %totalLiquidityShares)))) ;
+                     IF_NONE { PUSH string "Juster.getEvent view is not found" ; FAILWITH } {} ;
+                     DUP 5 ;
+                     CAR ;
+                     CAR ;
+                     CAR ;
+                     CAR ;
+                     CDR ;
+                     SWAP ;
+                     DUP ;
+                     DUG 2 ;
+                     CAR ;
+                     CAR ;
+                     CDR ;
+                     CAR ;
+                     CAR ;
+                     COMPARE ;
+                     LT ;
+                     IF { PUSH string "Event created before reward period" ; FAILWITH } {} ;
+                     DUP 5 ;
+                     CAR ;
+                     CAR ;
+                     CAR ;
+                     CAR ;
+                     CAR ;
+                     SWAP ;
+                     DUP ;
+                     DUG 2 ;
+                     CAR ;
+                     CAR ;
+                     CDR ;
+                     CAR ;
+                     CAR ;
+                     COMPARE ;
+                     GT ;
+                     IF { PUSH string "Event created after reward period" ; FAILWITH } {} ;
+                     DUP ;
+                     CAR ;
+                     CDR ;
+                     CAR ;
+                     CAR ;
+                     CDR ;
+                     IF {} { PUSH string "Reward allowed only for closed events" ; FAILWITH } ;
+                     DUP ;
+                     CAR ;
+                     CDR ;
+                     CAR ;
+                     CDR ;
+                     CAR ;
+                     IF { PUSH string "Reward is not allowed for canceled events" ; FAILWITH } {} ;
+                     DUP 5 ;
+                     CDR ;
+                     SWAP ;
+                     CAR ;
+                     CAR ;
+                     CDR ;
+                     CAR ;
+                     CDR ;
+                     MEM ;
+                     IF {}
+                        { PUSH string "Event should be created by trusted creator" ; FAILWITH } ;
+                     DUP 4 ;
+                     CAR ;
+                     CAR ;
+                     CAR ;
+                     CDR ;
+                     DUP 3 ;
+                     MEM ;
+                     IF { PUSH string "Reward already claimed" ; FAILWITH } {} ;
+                     DUP ;
+                     CAR ;
+                     CDR ;
+                     CDR ;
+                     SWAP ;
+                     CAR ;
+                     CDR ;
+                     CAR ;
+                     ADD ;
+                     DUP 4 ;
+                     CAR ;
+                     CDR ;
+                     CDR ;
+                     CAR ;
+                     CONTRACT %mint (pair (pair (nat %amount) (address %receiver)) (nat %token_id)) ;
+                     IF_NONE { PUSH string "Token.mint is not found" ; FAILWITH } {} ;
+                     DUP 5 ;
+                     CAR ;
+                     CDR ;
+                     CDR ;
+                     CDR ;
+                     DIG 4 ;
+                     PUSH mutez 1 ;
+                     DIG 4 ;
+                     EDIV ;
+                     IF_NONE { PUSH string "DIV by 0" ; FAILWITH } {} ;
+                     CAR ;
+                     PAIR ;
+                     PAIR ;
+                     NIL operation ;
+                     DIG 2 ;
+                     PUSH mutez 0 ;
+                     DIG 3 ;
+                     TRANSFER_TOKENS ;
+                     CONS ;
+                     DUP 3 ;
+                     CDR ;
+                     DUP 4 ;
+                     CAR ;
+                     CDR ;
+                     DUP 5 ;
+                     CAR ;
+                     CAR ;
+                     CDR ;
+                     DUP 6 ;
+                     CAR ;
+                     CAR ;
+                     CAR ;
+                     CDR ;
+                     UNIT ;
+                     DIG 6 ;
+                     SWAP ;
+                     SOME ;
+                     SWAP ;
+                     UPDATE ;
+                     DIG 5 ;
+                     CAR ;
+                     CAR ;
+                     CAR ;
+                     CAR ;
+                     PAIR ;
+                     PAIR ;
+                     PAIR ;
+                     PAIR ;
+                     SWAP ;
+                     PAIR } }
+               { IF_LEFT
+                   { SWAP ;
+                     DUP ;
+                     DUG 2 ;
+                     CAR ;
+                     CDR ;
+                     CAR ;
+                     CAR ;
+                     SENDER ;
+                     COMPARE ;
+                     EQ ;
+                     IF { SWAP ;
+                          DUP ;
+                          DUG 2 ;
+                          NIL operation ;
+                          DIG 2 ;
+                          PUSH mutez 0 ;
+                          DIG 4 ;
+                          CAR ;
+                          CDR ;
+                          CAR ;
+                          CAR ;
+                          TRANSFER_TOKENS ;
+                          CONS ;
+                          PAIR }
+                        { DROP 2 ; PUSH string "Only admin can call release admin" ; FAILWITH } }
+                   { DROP ;
+                     DUP ;
+                     CAR ;
+                     CDR ;
+                     CAR ;
+                     CAR ;
+                     SENDER ;
+                     COMPARE ;
+                     EQ ;
+                     IF { DUP ;
+                          CDR ;
+                          SWAP ;
+                          DUP ;
+                          DUG 2 ;
+                          CAR ;
+                          CDR ;
+                          DUP 3 ;
+                          CAR ;
+                          CAR ;
+                          CDR ;
+                          CDR ;
+                          DUP 4 ;
+                          CAR ;
+                          CAR ;
+                          CDR ;
+                          CAR ;
+                          NOT ;
+                          PAIR ;
+                          DIG 3 ;
+                          CAR ;
+                          CAR ;
+                          CAR ;
+                          PAIR ;
+                          PAIR ;
+                          PAIR ;
+                          NIL operation ;
+                          PAIR }
+                        { DROP ; PUSH string "Only admin can call trigger pause" ; FAILWITH } } } }
+           { SWAP ;
+             DUP ;
+             DUG 2 ;
+             CAR ;
+             CDR ;
+             CAR ;
+             CAR ;
+             SENDER ;
+             COMPARE ;
+             EQ ;
+             IF { SWAP ;
+                  DUP ;
+                  DUG 2 ;
+                  CDR ;
+                  DUP 3 ;
+                  CAR ;
+                  CDR ;
+                  CDR ;
+                  CDR ;
+                  DUP 3 ;
+                  CAR ;
+                  CDR ;
+                  CDR ;
+                  PAIR ;
+                  DUP 4 ;
+                  CAR ;
+                  CDR ;
+                  CAR ;
+                  PAIR ;
+                  DIG 3 ;
+                  CAR ;
+                  CAR ;
+                  PAIR ;
+                  PAIR ;
+                  DUP ;
+                  CDR ;
+                  DUP 3 ;
+                  CDR ;
+                  CAR ;
+                  DUP 3 ;
+                  CAR ;
+                  CDR ;
+                  CDR ;
+                  CAR ;
+                  PAIR ;
+                  DUP 3 ;
+                  CAR ;
+                  CDR ;
+                  CAR ;
+                  PAIR ;
+                  DIG 2 ;
+                  CAR ;
+                  CAR ;
+                  PAIR ;
+                  PAIR ;
+                  DUP ;
+                  CDR ;
+                  SWAP ;
+                  DUP ;
+                  DUG 2 ;
+                  CAR ;
+                  CDR ;
+                  DUP 4 ;
+                  CAR ;
+                  CAR ;
+                  CDR ;
+                  DUP 4 ;
+                  CAR ;
+                  CAR ;
+                  CDR ;
+                  CAR ;
+                  PAIR ;
+                  DIG 3 ;
+                  CAR ;
+                  CAR ;
+                  CAR ;
+                  PAIR ;
+                  PAIR ;
+                  PAIR ;
+                  SWAP ;
+                  DUP ;
+                  DUG 2 ;
+                  CDR ;
+                  CDR ;
+                  SWAP ;
+                  DUP ;
+                  DUG 2 ;
+                  CAR ;
+                  CDR ;
+                  CDR ;
+                  DUP 3 ;
+                  CAR ;
+                  CDR ;
+                  CAR ;
+                  CDR ;
+                  DUP 5 ;
+                  CAR ;
+                  CDR ;
+                  CAR ;
+                  PAIR ;
+                  PAIR ;
+                  DIG 2 ;
+                  CAR ;
+                  CAR ;
+                  PAIR ;
+                  PAIR ;
+                  DUP ;
+                  CDR ;
+                  SWAP ;
+                  DUP ;
+                  DUG 2 ;
+                  CAR ;
+                  CDR ;
+                  DUP 3 ;
+                  CAR ;
+                  CAR ;
+                  CDR ;
+                  DIG 3 ;
+                  CAR ;
+                  CAR ;
+                  CAR ;
+                  CDR ;
+                  DIG 4 ;
+                  CAR ;
+                  CAR ;
+                  CAR ;
+                  PAIR ;
+                  PAIR ;
+                  PAIR ;
+                  PAIR ;
+                  NIL operation ;
+                  PAIR }
+                { DROP 2 ; PUSH string "Only admin can call release admin" ; FAILWITH } } } }
+

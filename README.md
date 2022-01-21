@@ -28,8 +28,6 @@
 3. Агрегатор ликвидности пользователей.
 4. Арбитраж ставок с помощью смарт-контракта.
 
-[Пример reward-программы](reward.ligo) использующей Juster onchain views (можно использовать в качестве baseline для решения в хакатоне).
-
 ### Что ожидается в результате челленджа:
 1. Опубликованный репозиторий с кодом решения, включющий в себя:
     - смарт-контракт интегрированный с onchain views Juster. Данный контракт должен реализовать интересную и/или полезную логику, расширяющую возможности протокола. Для написания контракта желательно использовать язык [LIGO](https://ligolang.org/).
@@ -37,4 +35,22 @@
 2. Смарт контракт должен быть задеплоен в сети hangzhou2net
 3. Ссылка на работающее веб приложение позволяющее пользователям взаимодействовать с этим смарт контрактом будет преимуществом
 4. Наличие тестов на смарт конракт будет преимуществом
+
+### Материалы starter kit:
+* [reward.ligo](contract-example/reward.ligo) - пример [reward-программы](https://better-call.dev/hangzhou2net/KT1GxWYjswFaB73qk6p4USrNHbeYdZQcg6h9/operations) использующей Juster onchain views
+* [reward.tz](contract-example/reward.tz) - пример скомпилированной в Michelson reward-программы. Для компиляции использовалась docker версия LIGO:
+```console
+docker run --rm -v "$PWD":"$PWD" -w "$PWD" ligolang/ligo:0.33.0 compile contract contract-example/reward.ligo -e main --protocol hangzhou > contract-example/reward.tz
+```
+* [test.py](contract-example/test.py) - пример тестов для reward-программы написанных с использованием библиотеки [PyTezos](https://pytezos.org/quick_start.html). Для запуска тестов требуется также установить библиотеку [pytest](https://docs.pytest.org/en/6.2.x/getting-started.html):
+```console
+pip install wheel setuptools pkginfo cryptography
+pip install pytezos
+pip install pytest
+pytest contract-example/test.py
+```
+* [deploy.py](contract-example/deploy.py) - пример скрипта выполняющего деплой reward-программы в сети hangzhounet. Для исполнения необходимо установить PyTezos. Также для запуска требуется наличие приватного ключа с токенами в тестовой сети (скрипт его ищет под именем `key.json`), который можно получить используя [faucet](https://teztnets.xyz/hangzhounet-faucet)
+```console
+python contract-example/deploy.py
+```
 
